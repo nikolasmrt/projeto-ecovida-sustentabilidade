@@ -1,26 +1,30 @@
-# 📚 Organizador de Estudos com Python + MySQL + CustomTkinter
+# ♻ Eco-vida Sustentabilidade
 
-Organize e visualize seus estudos com uma interface moderna, banco de dados e gráficos!
-
----
-
-## 🚀 Funcionalidades
-
-- ✅ Registro de tempo de estudo por matéria
-- 📊 Gráfico de progresso com `matplotlib`
-- 📁 Exportação para CSV
-- 🤖 Recomendação automática baseada nos seus dados
-- 💾 Armazenamento com banco de dados MySQL
+Eco-vida Sustentabilidade é um sistema desktop interativo desenvolvido com Python e CustomTkinter, com o objetivo de incentivar hábitos sustentáveis por meio de um registro diário de ações ecológicas. 
+A aplicação permite acompanhar seus impactos positivos no meio ambiente e receber recomendações personalizadas de melhorias.
 
 ---
 
-## 🛠️ Tecnologias usadas
+## 📦 Funcionalidades
 
-- Python 3
-- MySQL
-- CustomTkinter
-- Matplotlib
-- mysql-connector-python
+- ✅ Registro de hábitos sustentáveis (nome, categoria, unidade e quantidade)
+- 📊 Geração de gráficos de hábitos por categoria
+- 💡 Recomendações automáticas baseadas nos registros
+- 🏆 Cálculo de pontuação sustentável do usuário
+- 📄 Exportação de relatório PDF com gráficos e histórico de hábitos
+- 🌐 Acesso integrado a dicas sustentáveis via Streamlit
+
+---
+
+## 🧰 Tecnologias Utilizadas
+
+- `Python 3.10+`
+- `CustomTkinter` – UI moderna baseada em Tkinter
+- `Tkinter` – Interface gráfica padrão
+- `Matplotlib` – Para geração de gráficos
+- `ReportLab` – Geração de relatórios PDF
+- `SQLite3` – Banco de dados local
+- `Streamlit` – Interface web para dicas sustentáveis
 
 ---
 
@@ -28,9 +32,8 @@ Organize e visualize seus estudos com uma interface moderna, banco de dados e gr
 
 ### Pré-requisitos
 
-1. **Python 3** ou superior.
-2. **MySQL** instalado e configurado na sua máquina.
-3. Instalar as dependências necessárias com o comando:
+1. **Python** 3.10 ou superior
+2. Instalar as dependências necessárias com o comando:
 
 ```bash
-pip install customtkinter matplotlib mysql-connector-python
+pip install customtkinter matplotlib reportlab sqlite3 streamlit
