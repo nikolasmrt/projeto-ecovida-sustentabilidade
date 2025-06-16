@@ -1,80 +1,145 @@
-import customtkinter as ctk
-from tkinter import messagebox
-from connection import registrar_usuario, verificar_login
-from login import Login
-from sistema import Sistema
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIcon, QFont
+
+from connection import registrar_usuario
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+icon_path = os.path.join(current_dir, "eco_icon.ico")
 
 
+class Register(QWidget):
+    registration_successful = Signal()
+    go_to_login = Signal()
 
-class Register(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-        self.title("")
-        self.iconbitmap("N:/Meus-trabalhos/Projetos/Projeto-ecovida-sustentabilidade/eco_icon.ico")
-        self.resizable(False, False)
+        self.setWindowTitle("")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            print(f"Erro: Ícone não encontrado em {icon_path}. Usando ícone padrão.")
+            
+            self.setWindowIcon(QIcon()) 
+        self.setFixedSize(640, 640)
 
-        self.geometry("340x420")
-        self.grid_columnconfigure((0, 1), weight=1)
-       
-        titulo = ctk.CTkLabel(self, text="♻", font=("Arial", 20))
-        titulo.grid(row=1, column=0, columnspan=2, pady=10)
+        self.setup_ui()
+        self.apply_qss()
 
-        ctk.CTkLabel(self, text="Registrar Usuário", font=("Arial", 24)).grid(row=3, column=0, columnspan=2, pady=25)
+    def setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setAlignment(Qt.AlignCenter)
+        main_layout.setSpacing(15)
 
-        ctk.CTkLabel(self, text="Nome:",font=("Arial",18)).grid(row=4)
-        self.nome_entry = ctk.CTkEntry(self, font=("Arial", 14))
-        self.nome_entry.grid(row=4, column=1,padx=25, pady=10, sticky="ew",columnspan=2)
+        titulo = QLabel("♻")
+        titulo.setAlignment(Qt.AlignCenter)
+        titulo.setFont(QFont("Arial", 40, QFont.Bold))
+        main_layout.addWidget(titulo)
 
-        ctk.CTkLabel(self, text="E-mail:",font=("Arial",18)).grid(row=5)
-        self.email_entry = ctk.CTkEntry(self, font=("Arial", 14))
-        self.email_entry.grid(row=5, column=1,padx=25,pady=10, sticky="ew")
+        title_label = QLabel("Registrar Usuário")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setFont(QFont("Arial", 28, QFont.Bold))
+        main_layout.addWidget(title_label)
 
-        ctk.CTkLabel(self, text="Senha:",font=("Arial",18)).grid(row=6)
-        self.senha_entry = ctk.CTkEntry(self, font=("Arial", 14), show="*")
-        self.senha_entry.grid(row=6, column=1,padx=25,pady=10, sticky="ew")
+        form_layout = QVBoxLayout()
+        form_layout.setContentsMargins(25, 0, 25, 0)
+        form_layout.setSpacing(10)
 
-        self.button = ctk.CTkButton(
-            self, 
-            text="Registrar", 
-            command=self.button_register,
-            fg_color="#2D6A4F",
-            hover_color="#2D6A4F"
-            )
-        self.button.grid(row=7, column=0, padx=30,pady=10,sticky="ew", columnspan=2)
-    
-        self.button = ctk.CTkButton(
-            self, 
-            text="Logar", 
-            command=self.abrir_login,
-            fg_color="#2D6A4F",
-            hover_color="#2D6A4F"
-            )
-        self.button.grid(row=8, column=0, padx=30,pady=0,sticky="ew", columnspan=2)
+        nome_label = QLabel("Nome:")
+        nome_label.setFont(QFont("Arial", 14))
+        self.nome_entry = QLineEdit()
+        self.nome_entry.setPlaceholderText("Seu nome completo")
+        self.nome_entry.setFont(QFont("Arial", 12))
+        self.nome_entry.setMinimumWidth(250) 
+        form_layout.addWidget(nome_label)
+        form_layout.addWidget(self.nome_entry)
+
+        email_label = QLabel("E-mail:")
+        email_label.setFont(QFont("Arial", 14))
+        self.email_entry = QLineEdit()
+        self.email_entry.setPlaceholderText("seu.email@exemplo.com")
+        self.email_entry.setFont(QFont("Arial", 12))
+        self.email_entry.setMinimumWidth(250) 
+        form_layout.addWidget(email_label)
+        form_layout.addWidget(self.email_entry)
+
+        password_label = QLabel("Senha:")
+        password_label.setFont(QFont("Arial", 14))
+        self.senha_entry = QLineEdit()
+        self.senha_entry.setEchoMode(QLineEdit.Password)
+        self.senha_entry.setPlaceholderText("********")
+        self.senha_entry.setFont(QFont("Arial", 12))
+        self.senha_entry.setMinimumWidth(250)
+        form_layout.addWidget(password_label)
+        form_layout.addWidget(self.senha_entry)
+
+        main_layout.addLayout(form_layout)
+
+        register_button = QPushButton("Registrar")
+        register_button.setFont(QFont("Arial", 16, QFont.Bold))
+        register_button.clicked.connect(self.button_register)
+        main_layout.addWidget(register_button, alignment=Qt.AlignCenter)
+
+        login_button = QPushButton("Logar")
+        login_button.setFont(QFont("Arial", 12, QFont.Bold))
+        login_button.setStyleSheet("QPushButton { background-color: transparent; border: none; color: #4CAF50; } QPushButton:hover { text-decoration: underline; }")
+        login_button.clicked.connect(self.abrir_login)
+        main_layout.addWidget(login_button, alignment=Qt.AlignCenter)
+
+    def apply_qss(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                font-family: 'Segoe UI', 'Arial';
+            }
+            QLabel {
+                color: #e0e0e0;
+            }
+            QLineEdit {
+                background-color: #3c3c3c;
+                border: 1px solid #555555;
+                border-radius: 8px;
+                padding: 10px; /* Padding ajustado */
+                color: #ffffff;
+                selection-background-color: #4CAF50;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 12px 25px;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3e8e41;
+            }
+        """)
 
     def button_register(self):
-        nome = self.nome_entry.get()
-        email = self.email_entry.get()
-        senha = self.senha_entry.get()
+        nome = self.nome_entry.text()
+        email = self.email_entry.text()
+        senha = self.senha_entry.text()
 
         if not nome or not email or not senha:
-            messagebox.showwarning("Campos vazios", "Por favor, preencha todos os campos.")
+            QMessageBox.warning(self, "Campos vazios", "Por favor, preencha todos os campos.")
             return
 
         sucesso = registrar_usuario(nome, email, senha)
         if sucesso:
-            messagebox.showinfo("Sucesso", "Usuário registrado com sucesso!")
-            self.clear_frame()
-            self.abrir_login()
+            QMessageBox.information(self, "Sucesso", "Usuário registrado com sucesso!")
+            self.registration_successful.emit()
         else:
-            messagebox.showerror("Erro", "Erro ao registrar. O e-mail já pode estar cadastrado.")
-    
-    def clear_frame(self):
-        for widget in self.winfo_children():
-            widget.destroy()
+            QMessageBox.critical(self, "Erro", "Erro ao registrar. O e-mail já pode estar cadastrado.")
 
     def abrir_login(self):
-        
-        self.destroy()
-        login = Login()
-        login.mainloop()
+        self.go_to_login.emit()

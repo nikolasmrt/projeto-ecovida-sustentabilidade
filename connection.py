@@ -1,9 +1,10 @@
 import bcrypt
 import mysql.connector
 from datetime import datetime
-import matplotlib.pyplot as plt
+
 from fpdf import FPDF
-from io import BytesIO
+import os # Necessário para remover a imagem temporária ao exportar PDF
+
 
 def conectar():
     try:
@@ -20,37 +21,36 @@ def conectar():
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
 
+
 def registrar_usuario(nome, email, senha):
     conn = conectar()
     if conn is None:
         return False
-    
+
     cursor = conn.cursor()
-    
-    
+
     cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
     if cursor.fetchone():
         conn.close()
         return False
-    
+
     senha_criptografada = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
-    
-    
+
     cursor.execute("""
         INSERT INTO usuarios (nome, email, senha)
         VALUES (%s, %s, %s)
     """, (nome, email, senha_criptografada.decode()))
-    
+
     conn.commit()
     conn.close()
     return True
 
-# Função para verificar o login do usuário
+
 def verificar_login(email, senha):
     conn = conectar()
     if conn is None:
         return None
-    
+
     cursor = conn.cursor()
     cursor.execute("SELECT id, senha FROM usuarios WHERE email = %s", (email,))
     resultado = cursor.fetchone()
@@ -62,7 +62,7 @@ def verificar_login(email, senha):
             return usuario_id
     return None
 
-# Função para registrar hábitos no banco de dados
+
 def registrar_habito(usuario_id, nome_habito, quantidade, unidade, categoria):
     conn = conectar()
     if conn is None:
@@ -70,8 +70,7 @@ def registrar_habito(usuario_id, nome_habito, quantidade, unidade, categoria):
 
     try:
         cursor = conn.cursor()
-        
-        
+
         cursor.execute("""
             SELECT id FROM habitos WHERE nome = %s AND unidade = %s AND categoria = %s
             """, (nome_habito, unidade, categoria))
@@ -80,7 +79,6 @@ def registrar_habito(usuario_id, nome_habito, quantidade, unidade, categoria):
         if habito:
             habito_id = habito[0]
         else:
-            
             cursor.execute("""
                 INSERT INTO habitos (nome, unidade, categoria)
                 VALUES (%s, %s, %s)
@@ -89,14 +87,13 @@ def registrar_habito(usuario_id, nome_habito, quantidade, unidade, categoria):
             cursor.execute("SELECT LAST_INSERT_ID()")
             habito_id = cursor.fetchone()[0]
 
-        
         data = datetime.now().strftime("%Y-%m-%d")
         cursor.execute("""
             INSERT INTO registros (usuario_id, habito_id, quantidade, data_registro)
             VALUES (%s, %s, %s, %s)
         """, (usuario_id, habito_id, quantidade, data))
         conn.commit()
-        
+
         conn.close()
         return True
     except Exception as e:
@@ -105,23 +102,24 @@ def registrar_habito(usuario_id, nome_habito, quantidade, unidade, categoria):
             conn.close()
         return False
 
+
 def calcular_pontuacao(usuario_id):
     conn = conectar()
     if conn is None:
         return 0
-        
+
     try:
         cursor = conn.cursor()
-        
+
         cursor.execute("""
             SELECT COUNT(*) FROM registros WHERE usuario_id = %s
         """, (usuario_id,))
         count = cursor.fetchone()[0]
-        
+
         if count == 0:
             conn.close()
-            return 0  
-            
+            return 0
+
         cursor.execute("""
             SELECT h.categoria, h.nome, SUM(r.quantidade) as total
             FROM registros r
@@ -133,110 +131,93 @@ def calcular_pontuacao(usuario_id):
         conn.close()
 
         pontuacao = 0
-        # Pesos invertidos para premiar economia: quanto menor o consumo, maior a pontuação
         pesos = {
-            'água': 5.0,     
-            'energia': 4.0,  
-            'transporte': 3.0, 
-            'resíduos': 2.0   
+            'água': 5.0,
+            'energia': 4.0,
+            'transporte': 3.0,
+            'resíduos': 2.0
         }
-        
-        # Valores de referência (consumo médio por categoria)
+
         referencias = {
-            'água': 150.0,    
-            'energia': 10.0,  
-            'transporte': 30.0, 
-            'resíduos': 2.0    
+            'água': 150.0,
+            'energia': 10.0,
+            'transporte': 30.0,
+            'resíduos': 2.0
         }
 
         for categoria, nome, quantidade in resultados:
             if quantidade is None:
-                continue 
-                
+                continue
+
             try:
-                quantidade = float(quantidade)  
+                quantidade = float(quantidade)
             except (ValueError, TypeError):
-                continue  
-                
+                continue
+
             categoria = categoria.lower() if categoria else "outros"
             if categoria in pesos and categoria in referencias:
-                
+
                 if quantidade < referencias[categoria]:
-                    
                     economia = (referencias[categoria] - quantidade) / referencias[categoria]
                     pontos = economia * 100 * pesos[categoria]
                     pontuacao += pontos
                 else:
-                    
                     excesso = (quantidade - referencias[categoria]) / referencias[categoria]
-                    pontos = -excesso * 10 * pesos[categoria]  
+                    pontos = -excesso * 10 * pesos[categoria]
                     pontuacao += pontos
 
-        
         return max(round(pontuacao, 2), 0)
-        
+
     except Exception as e:
         print(f"Erro ao calcular pontuação: {e}")
         if conn and conn.is_connected():
             conn.close()
         return 0
-    
 
-def grafico_habitos(usuario_id):
+
+def obter_dados_grafico_por_categoria(usuario_id):
     conn = conectar()
     if conn is None:
-        return
-        
+        return []
+
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT h.categoria, SUM(r.quantidade) as total
-        FROM registros r
-        JOIN habitos h ON r.habito_id = h.id
-        WHERE r.usuario_id = %s
-        GROUP BY h.categoria;
-    """, (usuario_id,))
-    resultados = cursor.fetchall()
-    conn.close()
+    try:
+        cursor.execute("""
+            SELECT h.categoria, SUM(r.quantidade) as total
+            FROM registros r
+            JOIN habitos h ON r.habito_id = h.id
+            WHERE r.usuario_id = %s
+            GROUP BY h.categoria;
+        """, (usuario_id,))
+        resultados = cursor.fetchall()
+        conn.close()
+        return resultados
+    except Exception as e:
+        print(f"Erro ao obter dados do gráfico: {e}")
+        if conn and conn.is_connected():
+            conn.close()
+        return []
 
-    if not resultados:
-        print("Nenhum dado para exibir.")
-        return
 
-    categorias = [categoria for categoria, _ in resultados]
-    quantidades = [float(quantidade) for _, quantidade in resultados]
-
-    plt.figure(figsize=(10, 6))
-    plt.bar(categorias, quantidades, color='mediumseagreen')
-    plt.xlabel("Categoria")
-    plt.ylabel("Quantidade Total")
-    plt.title("Consumo por Categoria")
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    plt.show()
-
-    # Calcular pontuação baseada nos dados do gráfico
-    pontuacao = calcular_pontuacao(usuario_id)
-    print(f"Pontuação de Sustentabilidade: {pontuacao}")
 
 def exportar_para_pdf(usuario_id):
+    import matplotlib.pyplot as plt 
     try:
-        
         conn = conectar()
         if conn is None:
             return False
-            
+
         cursor = conn.cursor()
         cursor.execute("SELECT nome, email FROM usuarios WHERE id = %s", (usuario_id,))
         usuario = cursor.fetchone()
-        
+
         if not usuario:
             print(f"Usuário ID {usuario_id} não encontrado.")
             conn.close()
             return False
-            
+
         nome_usuario, email_usuario = usuario
-        
-        
+
         cursor.execute("""
             SELECT h.nome, h.categoria, h.unidade, r.quantidade, r.data_registro
             FROM registros r
@@ -245,26 +226,23 @@ def exportar_para_pdf(usuario_id):
             ORDER BY r.data_registro DESC;
         """, (usuario_id,))
         registros = cursor.fetchall()
-        
+
         if not registros:
             print("Nenhum registro encontrado para este usuário.")
             conn.close()
             return False
 
-        
         pdf = FPDF()
         pdf.add_page()
-        
-        
+
         pdf.set_font("Arial", "B", 16)
         pdf.cell(0, 10, "Relatório de Sustentabilidade", ln=True, align="C")
-        
+
         pdf.set_font("Arial", "", 12)
         pdf.cell(0, 10, f"Usuário: {nome_usuario} ({email_usuario})", ln=True)
         pdf.cell(0, 10, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True)
         pdf.ln(5)
-        
-        # Tabela de registros
+
         pdf.set_font("Arial", "B", 12)
         pdf.cell(50, 10, "Hábito", border=1)
         pdf.cell(40, 10, "Categoria", border=1)
@@ -272,7 +250,7 @@ def exportar_para_pdf(usuario_id):
         pdf.cell(30, 10, "Unidade", border=1)
         pdf.cell(40, 10, "Data", border=1)
         pdf.ln()
-        
+
         pdf.set_font("Arial", "", 10)
         for nome, categoria, unidade, quantidade, data in registros:
             try:
@@ -286,30 +264,21 @@ def exportar_para_pdf(usuario_id):
             except Exception as e:
                 print(f"Erro ao adicionar registro ao PDF: {e}")
                 continue
-        
-        
+
+
         pdf.ln(10)
         pontuacao = calcular_pontuacao(usuario_id)
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 10, f"Pontuação de Sustentabilidade: {pontuacao}", ln=True)
+
         
-        
-        cursor.execute("""
-            SELECT h.categoria, SUM(r.quantidade) as total
-            FROM registros r
-            JOIN habitos h ON r.habito_id = h.id
-            WHERE r.usuario_id = %s
-            GROUP BY h.categoria;
-        """, (usuario_id,))
-        dados_grafico = cursor.fetchall()
-        conn.close()
-        
-        # Criar gráfico
+        dados_grafico = obter_dados_grafico_por_categoria(usuario_id) 
+
         if dados_grafico:
             try:
                 categorias = [categoria for categoria, _ in dados_grafico]
                 quantidades = [float(quantidade) for _, quantidade in dados_grafico]
-                
+
                 plt.figure(figsize=(8, 4))
                 plt.bar(categorias, quantidades, color='mediumseagreen')
                 plt.xlabel("Categoria")
@@ -317,32 +286,28 @@ def exportar_para_pdf(usuario_id):
                 plt.title("Consumo por Categoria")
                 plt.xticks(rotation=45, ha='right')
                 plt.tight_layout()
-                
-                
+
                 img_path = f"grafico_temp_{usuario_id}.png"
                 plt.savefig(img_path)
                 plt.close()
-                
-                
+
                 pdf.ln(5)
                 pdf.cell(0, 10, "Gráfico de Consumo por Categoria:", ln=True)
                 pdf.image(img_path, x=20, y=None, w=170)
-                
-                
+
                 try:
                     os.remove(img_path)
                 except Exception as e:
                     print(f"Aviso: Não foi possível remover a imagem temporária: {e}")
             except Exception as e:
-                print(f"Erro ao criar gráfico: {e}")
-                
-        
-        # Salvar o PDF
+                print(f"Erro ao criar gráfico para PDF: {e}")
+
+
         try:
-            pdf_path = f"N:/Meus-trabalhos/Projetos/Projeto-ecovida-sustentabilidade/relatorio_sustentabilidade_{usuario_id}.pdf"
+            
+            pdf_path = f"relatorio_sustentabilidade_{usuario_id}.pdf"
             pdf.output(pdf_path)
 
-            import os
             caminho_completo = os.path.abspath(pdf_path)
             print(f"PDF salvo em: {caminho_completo}")
 
@@ -351,24 +316,24 @@ def exportar_para_pdf(usuario_id):
         except Exception as e:
             print(f"Erro ao salvar o PDF: {e}")
             return False
-        
+
     except Exception as e:
         print(f"Erro ao gerar o PDF: {e}")
         import traceback
         traceback.print_exc()
         return False
-    
-    
+
+
 def limpar_dados():
     conn = conectar()
     if conn is None:
         return False
-    
+
     try:
         cursor = conn.cursor()
-        
+
         cursor.execute("DELETE FROM registros")
-        
+
         cursor.execute("DELETE FROM habitos")
         conn.commit()
         conn.close()
@@ -380,11 +345,12 @@ def limpar_dados():
             conn.close()
         return False
 
+
 def zerar_tempos():
     conn = conectar()
     if conn is None:
         return False
-    
+
     try:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM registros")
@@ -398,11 +364,12 @@ def zerar_tempos():
             conn.close()
         return False
 
-def recomendar_habito(usuario_id):  
+
+def recomendar_habito(usuario_id):
     conn = conectar()
     if conn is None:
         return "Erro de conexão com o banco de dados."
-    
+
     try:
         cursor = conn.cursor()
         cursor.execute("""
@@ -419,7 +386,6 @@ def recomendar_habito(usuario_id):
 
         if resultado:
             nome, categoria, media = resultado
-            # Recomendações baseadas na categoria
             recomendacoes = {
                 'água': [
                     f"Você está usando em média {int(media)} litros em '{nome}'. Tente reduzir para economizar água.",
@@ -442,7 +408,7 @@ def recomendar_habito(usuario_id):
                     "Dica: Evite produtos com embalagens excessivas."
                 ]
             }
-            
+
             categoria_lower = categoria.lower() if categoria else "outros"
             if categoria_lower in recomendacoes:
                 return "\n\n".join(recomendacoes[categoria_lower])
